@@ -1,5 +1,7 @@
 import {
   Booking,
+  Slot,
+  Session,
   GroupBooking,
   GroupSession,
   Order,
@@ -7,6 +9,7 @@ import {
   Product,
   Creator,
   Refund,
+  CreatorCancellationFee,
   sequelize,
 } from '../models/index.js';
 import { AppError } from '../utils/AppError.js';
@@ -75,6 +78,7 @@ export async function cancelSlotBooking(bookingId, actorUserId, asCreator) {
     const provider = getPaymentProvider(payment.provider);
     const ext = await provider.refund({
       paymentIntentId: payment.externalOrderId,
+      externalPaymentId: payment.externalPaymentId,
       amountMinor: refundAmount < payment.amountTotal ? refundAmount : undefined,
       reason: 'session_cancellation',
     });
@@ -92,6 +96,21 @@ export async function cancelSlotBooking(bookingId, actorUserId, asCreator) {
 
     const newStatus = refundAmount >= payment.amountTotal ? 'refunded_full' : 'refunded_partial';
     await payment.update({ status: newStatus }, { transaction: t });
+
+    if (asCreator && refundAmount > 0 && config.creatorCancellationFeeBps > 0) {
+      const feeMinor = Math.floor((refundAmount * config.creatorCancellationFeeBps) / 10000);
+      if (feeMinor > 0) {
+        await CreatorCancellationFee.create(
+          {
+            creatorId: session.creatorId,
+            amountMinor: feeMinor,
+            currency: payment.currency,
+            sourcePaymentId: payment.id,
+          },
+          { transaction: t }
+        );
+      }
+    }
 
     return { refunded: true, refundAmount, externalRefundId: ext.externalRefundId };
   });
@@ -131,6 +150,7 @@ export async function cancelGroupBooking(groupBookingId, actorUserId, asCreator)
     const provider = getPaymentProvider(payment.provider);
     const ext = await provider.refund({
       paymentIntentId: payment.externalOrderId,
+      externalPaymentId: payment.externalPaymentId,
       amountMinor: refundAmount < payment.amountTotal ? refundAmount : undefined,
       reason: 'group_cancellation',
     });
@@ -149,6 +169,22 @@ export async function cancelGroupBooking(groupBookingId, actorUserId, asCreator)
       },
       { transaction: t }
     );
+
+    if (asCreator && refundAmount > 0 && config.creatorCancellationFeeBps > 0) {
+      const feeMinor = Math.floor((refundAmount * config.creatorCancellationFeeBps) / 10000);
+      if (feeMinor > 0) {
+        await CreatorCancellationFee.create(
+          {
+            creatorId: gs.creatorId,
+            amountMinor: feeMinor,
+            currency: payment.currency,
+            sourcePaymentId: payment.id,
+          },
+          { transaction: t }
+        );
+      }
+    }
+
     return { refunded: true, refundAmount };
   });
 }
@@ -187,6 +223,7 @@ export async function cancelProductOrder(orderId, actorUserId, asCreator) {
     const provider = getPaymentProvider(payment.provider);
     const ext = await provider.refund({
       paymentIntentId: payment.externalOrderId,
+      externalPaymentId: payment.externalPaymentId,
       amountMinor: refundAmount < payment.amountTotal ? refundAmount : undefined,
       reason: 'product_cancel',
     });
@@ -203,6 +240,31 @@ export async function cancelProductOrder(orderId, actorUserId, asCreator) {
       { status: refundAmount >= payment.amountTotal ? 'refunded_full' : 'refunded_partial' },
       { transaction: t }
     );
+
+    if (asCreator && refundAmount > 0 && config.creatorCancellationFeeBps > 0) {
+      const feeMinor = Math.floor((refundAmount * config.creatorCancellationFeeBps) / 10000);
+      if (feeMinor > 0) {
+        await CreatorCancellationFee.create(
+          {
+            creatorId: order.product.creatorId,
+            amountMinor: feeMinor,
+            currency: payment.currency,
+            sourcePaymentId: payment.id,
+          },
+          { transaction: t }
+        );
+      }
+    }
+
     return { refunded: true, refundAmount };
   });
+}
+
+/** Sum of creator cancellation fees not yet deducted (for use when transferring to creator). */
+export async function getUndeductedCancellationFeeTotal(creatorId) {
+  const rows = await CreatorCancellationFee.findAll({
+    where: { creatorId, deductedAt: null },
+    attributes: ['amountMinor'],
+  });
+  return rows.reduce((sum, r) => sum + Number(r.amountMinor), 0);
 }

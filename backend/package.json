@@ -8,6 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:sync": "node src/scripts/syncDb.js",
+    "db:migrate": "npx sequelize-cli db:migrate",
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
     "seed": "node src/scripts/seed.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
@@ -25,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.5.0",
     "mysql2": "^3.11.0",
+    "razorpay": "^2.9.6",
     "sequelize": "^6.37.3",
     "stripe": "^16.12.0",
     "uuid": "^10.0.0",

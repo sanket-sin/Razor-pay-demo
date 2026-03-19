@@ -16,6 +16,11 @@ export default function Layout() {
             <Link to="/book" className="btn-ghost text-sm hidden sm:inline-flex">
               Book session
             </Link>
+            {user && (
+              <Link to="/bookings" className="btn-ghost text-sm hidden sm:inline-flex">
+                My bookings
+              </Link>
+            )}
             <Link to="/groups" className="btn-ghost text-sm hidden sm:inline-flex">
               Groups
             </Link>
@@ -30,6 +35,11 @@ export default function Layout() {
             {user && (
               <Link to="/orders" className="btn-ghost text-sm">
                 Orders
+              </Link>
+            )}
+            {user && (
+              <Link to="/payment-test" className="btn-ghost text-sm text-amber-400/90">
+                Payment test
               </Link>
             )}
             {user ? (

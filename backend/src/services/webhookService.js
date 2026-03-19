@@ -41,7 +41,67 @@ export async function handleStripeEvent(event) {
   }
 }
 
-/** Razorpay placeholder — implemented in step 3 */
-export async function handleRazorpayWebhook(_body, _signature) {
+import crypto from 'crypto';
+import { config } from '../config/index.js';
+import { Payment } from '../models/index.js';
+import * as paymentFlow from './paymentFlowService.js';
+
+export function verifyRazorpaySignature(rawBody, signature) {
+  const secret = config.razorpay.webhookSecret;
+  if (!secret) throw new Error('RAZORPAY_WEBHOOK_SECRET not set');
+  const bodyStr = typeof rawBody === 'string' ? rawBody : Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : JSON.stringify(rawBody);
+  const expected = crypto.createHmac('sha256', secret).update(bodyStr).digest('hex');
+  if (expected !== signature) throw new Error('Razorpay webhook signature invalid');
+}
+
+export async function handleRazorpayWebhook(rawBody, signature) {
+  if (!signature) throw new Error('Missing x-razorpay-signature');
+  verifyRazorpaySignature(rawBody, signature);
+  const body = typeof rawBody === 'string' ? JSON.parse(rawBody) : Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString('utf8')) : rawBody;
+  const event = body.event;
+
+  switch (event) {
+    case 'payment.captured': {
+      const entity = body.payload?.payment?.entity;
+      const orderId = entity?.order_id;
+      const razorpayPaymentId = entity?.id;
+      if (orderId && razorpayPaymentId) {
+        const pay = await Payment.findOne({ where: { externalOrderId: orderId } });
+        if (pay && pay.status !== 'captured') {
+          try {
+            await paymentFlow.fulfillPaymentFromWebhook(pay.id, razorpayPaymentId);
+          } catch (e) {
+            console.error('Razorpay webhook payment.captured error', e);
+          }
+        }
+      }
+      break;
+    }
+    case 'payment.failed': {
+      const orderId = body.payload?.payment?.entity?.order_id;
+      if (orderId) {
+        const pay = await Payment.findOne({ where: { externalOrderId: orderId } });
+        if (pay && pay.status === 'pending') {
+          await paymentFlow.handlePaymentFailure(pay);
+        }
+      }
+      break;
+    }
+    case 'payment.authorized': {
+      const orderId = body.payload?.payment?.entity?.order_id;
+      const razorpayPaymentId = body.payload?.payment?.entity?.id;
+      if (orderId && razorpayPaymentId) {
+        const pay = await Payment.findOne({ where: { externalOrderId: orderId } });
+        if (pay && pay.status === 'pending') {
+          await pay.update({ externalPaymentId: razorpayPaymentId });
+        }
+      }
+      break;
+    }
+    case 'refund.created':
+      break;
+    default:
+      break;
+  }
   return { received: true };
 }

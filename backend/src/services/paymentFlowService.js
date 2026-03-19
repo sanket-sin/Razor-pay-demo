@@ -21,9 +21,28 @@ export async function createPaymentOrder({
   productId,
   quantity,
   shippingAddress,
+  captureLater = false,
 }) {
   const provider = getPaymentProvider(providerName);
   const creatorProfile = async (creatorId) => Creator.findByPk(creatorId);
+
+  const buildReturn = (pay, order, extra = {}) => {
+    const base = {
+      paymentId: pay.id,
+      provider: provider.name,
+      clientSecret: order.externalClientSecret,
+      amountTotal: pay.amountTotal,
+      currency: pay.currency,
+      platformFee: pay.platformFee,
+      creatorAmount: pay.creatorAmount,
+      ...extra,
+    };
+    if (provider.name === 'razorpay') {
+      base.orderId = order.externalOrderId;
+      base.keyId = config.razorpay.keyId || '';
+    }
+    return base;
+  };
 
   if (purpose === 'slot') {
     if (!slotId) throw AppError.badRequest('slotId required');
@@ -55,6 +74,7 @@ export async function createPaymentOrder({
         paymentId: pay.id,
         description: `Slot: ${session.title}`,
         metadata: { purpose: 'slot', bookingId: booking.id, paymentId: pay.id },
+        captureLater,
       });
       await pay.update(
         {
@@ -63,14 +83,7 @@ export async function createPaymentOrder({
         },
         { transaction: t }
       );
-      return {
-        paymentId: pay.id,
-        provider: provider.name,
-        clientSecret: order.externalClientSecret,
-        amountTotal,
-        currency: session.currency,
-        bookingId: booking.id,
-      };
+      return buildReturn(pay, order, { bookingId: booking.id });
     });
   }
 
@@ -105,6 +118,7 @@ export async function createPaymentOrder({
         paymentId: pay.id,
         description: `Group: ${groupSession.title}`,
         metadata: { purpose: 'group', groupBookingId: booking.id, paymentId: pay.id },
+        captureLater,
       });
       await pay.update(
         {
@@ -113,14 +127,7 @@ export async function createPaymentOrder({
         },
         { transaction: t }
       );
-      return {
-        paymentId: pay.id,
-        provider: provider.name,
-        clientSecret: order.externalClientSecret,
-        amountTotal,
-        currency: groupSession.currency,
-        groupBookingId: booking.id,
-      };
+      return buildReturn(pay, order, { groupBookingId: booking.id });
     });
   }
 
@@ -165,6 +172,7 @@ export async function createPaymentOrder({
         paymentId: pay.id,
         description: `Order ${order.id}`,
         metadata: { purpose: 'product', orderId: order.id, paymentId: pay.id },
+        captureLater,
       });
       await pay.update(
         {
@@ -174,21 +182,21 @@ export async function createPaymentOrder({
         { transaction: t }
       );
       await order.update({ paymentId: pay.id }, { transaction: t });
-      return {
-        paymentId: pay.id,
-        provider: provider.name,
-        clientSecret: ext.externalClientSecret,
-        amountTotal,
-        currency: product.currency,
-        orderId: order.id,
-      };
+      return buildReturn(pay, ext, { orderId: order.id });
     });
   }
 
   throw AppError.badRequest('Invalid purpose');
 }
 
-export async function verifyAndFulfillPayment({ paymentId, paymentIntentId, userId }) {
+export async function verifyAndFulfillPayment({
+  paymentId,
+  paymentIntentId,
+  userId,
+  razorpayOrderId,
+  razorpayPaymentId,
+  razorpaySignature,
+}) {
   const payment = await Payment.findByPk(paymentId);
   if (!payment) throw AppError.notFound('Payment not found');
   if (userId && payment.userId !== userId) throw AppError.forbidden();
@@ -197,15 +205,32 @@ export async function verifyAndFulfillPayment({ paymentId, paymentIntentId, user
   }
 
   const provider = getPaymentProvider(payment.provider);
-  const piId = paymentIntentId || payment.externalOrderId;
-  const verified = await provider.verifyPayment({ paymentIntentId: piId });
+  let verified;
+  if (payment.provider === 'razorpay') {
+    verified = await provider.verifyPayment({
+      paymentId,
+      razorpayOrderId: razorpayOrderId || payment.externalOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+  } else {
+    const piId = paymentIntentId || payment.externalOrderId;
+    verified = await provider.verifyPayment({ paymentIntentId: piId });
+  }
 
   if (!verified.success) {
     await handlePaymentFailure(payment);
     throw AppError.badRequest('Payment not completed');
   }
 
-  await provider.capturePayment({ paymentIntentId: piId });
+  const captureId = payment.provider === 'razorpay'
+    ? (verified.externalPaymentId || payment.externalPaymentId)
+    : (paymentIntentId || payment.externalOrderId);
+  if (payment.provider === 'razorpay' && verified.needsCapture) {
+    await provider.capturePayment({ externalPaymentId: captureId });
+  } else if (payment.provider !== 'razorpay') {
+    await provider.capturePayment({ paymentIntentId: captureId });
+  }
 
   return sequelize.transaction(async (t) => {
     await payment.reload({ transaction: t, lock: t.LOCK.UPDATE });
@@ -266,6 +291,7 @@ export async function refundPayment({ paymentId, amountMinor, reason, actorUserI
   const refundAmt = amountMinor != null ? amountMinor : payment.amountTotal;
   const ext = await provider.refund({
     paymentIntentId: payment.externalOrderId,
+    externalPaymentId: payment.externalPaymentId,
     amountMinor: refundAmt < payment.amountTotal ? refundAmt : undefined,
     reason: reason || 'api_refund',
   });
@@ -279,6 +305,58 @@ export async function refundPayment({ paymentId, amountMinor, reason, actorUserI
   const newStatus = refundAmt >= payment.amountTotal ? 'refunded_full' : 'refunded_partial';
   await payment.update({ status: newStatus });
   return { refundId: ext.externalRefundId, amount: refundAmt };
+}
+
+/** Called from Razorpay webhook when payment.captured — no signature check. */
+export async function fulfillPaymentFromWebhook(paymentId, externalPaymentId) {
+  const payment = await Payment.findByPk(paymentId);
+  if (!payment) return;
+  if (payment.status === 'captured') return;
+  return sequelize.transaction(async (t) => {
+    await payment.reload({ transaction: t, lock: t.LOCK.UPDATE });
+    if (payment.status === 'captured') return;
+    await payment.update(
+      { status: 'captured', externalPaymentId },
+      { transaction: t }
+    );
+    if (payment.purpose === 'slot' && payment.bookingId) {
+      await sessionService.confirmSlotBooking(payment.bookingId, payment.id, t);
+    } else if (payment.purpose === 'group' && payment.groupBookingId) {
+      await groupSessionService.confirmGroupBooking(payment.groupBookingId, payment.id, t);
+    } else if (payment.purpose === 'product' && payment.orderId) {
+      await orderService.confirmOrder(payment.orderId, payment.id, t);
+    }
+  });
+}
+
+/** Manual capture for Razorpay (Capture Later / freeze payment). */
+export async function capturePayment(paymentId, userId) {
+  const payment = await Payment.findByPk(paymentId);
+  if (!payment) throw AppError.notFound('Payment not found');
+  if (payment.userId !== userId) throw AppError.forbidden();
+  if (payment.provider !== 'razorpay') {
+    throw AppError.badRequest('Manual capture is only for Razorpay (Capture Later)');
+  }
+  if (payment.status === 'captured') {
+    return { alreadyProcessed: true, payment };
+  }
+  if (!payment.externalPaymentId) {
+    throw AppError.badRequest('Payment has no external payment id yet; complete payment on client first');
+  }
+  const provider = getPaymentProvider(payment.provider);
+  await provider.capturePayment({ externalPaymentId: payment.externalPaymentId });
+  return sequelize.transaction(async (t) => {
+    await payment.reload({ transaction: t, lock: t.LOCK.UPDATE });
+    await payment.update({ status: 'captured' }, { transaction: t });
+    if (payment.purpose === 'slot' && payment.bookingId) {
+      await sessionService.confirmSlotBooking(payment.bookingId, payment.id, t);
+    } else if (payment.purpose === 'group' && payment.groupBookingId) {
+      await groupSessionService.confirmGroupBooking(payment.groupBookingId, payment.id, t);
+    } else if (payment.purpose === 'product' && payment.orderId) {
+      await orderService.confirmOrder(payment.orderId, payment.id, t);
+    }
+    return { success: true, payment };
+  });
 }
 
 export { handlePaymentFailure };

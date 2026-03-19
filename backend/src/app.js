@@ -22,7 +22,11 @@ export function createApp() {
     express.raw({ type: 'application/json' }),
     webhookController.stripe
   );
-  app.post('/webhooks/razorpay', express.json(), webhookController.razorpay);
+  app.post(
+    '/webhooks/razorpay',
+    express.raw({ type: 'application/json' }),
+    webhookController.razorpay
+  );
 
   app.use(express.json({ limit: '1mb' }));
 

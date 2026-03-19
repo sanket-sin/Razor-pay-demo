@@ -10,6 +10,7 @@ import defineProduct from './Product.js';
 import defineOrder from './Order.js';
 import definePayment from './Payment.js';
 import defineRefund from './Refund.js';
+import defineCreatorCancellationFee from './CreatorCancellationFee.js';
 
 const User = defineUser(sequelize);
 const Creator = defineCreator(sequelize);
@@ -22,9 +23,13 @@ const Product = defineProduct(sequelize);
 const Order = defineOrder(sequelize);
 const Payment = definePayment(sequelize);
 const Refund = defineRefund(sequelize);
+const CreatorCancellationFee = defineCreatorCancellationFee(sequelize);
 
 User.hasOne(Creator, { foreignKey: 'userId', as: 'creatorProfile' });
 Creator.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+Creator.hasMany(CreatorCancellationFee, { foreignKey: 'creatorId', as: 'cancellationFees' });
+CreatorCancellationFee.belongsTo(Creator, { foreignKey: 'creatorId', as: 'creator' });
 
 Creator.hasMany(Session, { foreignKey: 'creatorId', as: 'sessions' });
 Session.belongsTo(Creator, { foreignKey: 'creatorId', as: 'creator' });
@@ -72,4 +77,5 @@ export {
   Order,
   Payment,
   Refund,
+  CreatorCancellationFee,
 };

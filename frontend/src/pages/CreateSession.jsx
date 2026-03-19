@@ -4,7 +4,11 @@ import * as sessionsApi from '../services/sessions.js';
 import { getErrorMessage } from '../services/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { todayISODate } from '../utils/money.js';
+import { minutesTo12hParts, parts12hToMinutes } from '../utils/time12h.js';
 import Alert from '../components/Alert.jsx';
+
+const HOURS_12 = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => i * 5); // 0, 5, ..., 55
 
 export default function CreateSession() {
   const setCreatorId = useAuthStore((s) => s.setCreatorId);
@@ -19,6 +23,20 @@ export default function CreateSession() {
   const [currency, setCurrency] = useState('usd');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const startParts = minutesTo12hParts(windowStartMinute);
+  const endParts = minutesTo12hParts(windowEndMinute);
+
+  const updateStart = (part, value) => {
+    const next = { ...startParts, [part]: value };
+    if (part === 'pm') next.pm = value === true || value === 'true';
+    setStart(parts12hToMinutes(next));
+  };
+  const updateEnd = (part, value) => {
+    const next = { ...endParts, [part]: value };
+    if (part === 'pm') next.pm = value === true || value === 'true';
+    setEnd(parts12hToMinutes(next));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -63,14 +81,82 @@ export default function CreateSession() {
             <input className="input" value={sessionTz} onChange={(e) => setSessionTz(e.target.value)} required />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="label">Start (min from midnight)</label>
-            <input className="input" type="number" value={windowStartMinute} onChange={(e) => setStart(e.target.value)} />
+        <div className="space-y-4">
+          <div className="label">Start time</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="sr-only">Start hour</label>
+              <select
+                className="input"
+                value={startParts.hour}
+                onChange={(e) => updateStart('hour', Number(e.target.value))}
+              >
+                {HOURS_12.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="sr-only">Start minute</label>
+              <select
+                className="input"
+                value={Math.min(55, Math.round(startParts.minute / 5) * 5)}
+                onChange={(e) => updateStart('minute', Number(e.target.value))}
+              >
+                {MINUTE_OPTIONS.map((m) => (
+                  <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="sr-only">Start AM/PM</label>
+              <select
+                className="input"
+                value={startParts.pm ? 'PM' : 'AM'}
+                onChange={(e) => updateStart('pm', e.target.value === 'PM')}
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="label">End</label>
-            <input className="input" type="number" value={windowEndMinute} onChange={(e) => setEnd(e.target.value)} />
+          <div className="label">End time</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="sr-only">End hour</label>
+              <select
+                className="input"
+                value={endParts.hour}
+                onChange={(e) => updateEnd('hour', Number(e.target.value))}
+              >
+                {HOURS_12.map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="sr-only">End minute</label>
+              <select
+                className="input"
+                value={Math.min(55, Math.round(endParts.minute / 5) * 5)}
+                onChange={(e) => updateEnd('minute', Number(e.target.value))}
+              >
+                {MINUTE_OPTIONS.map((m) => (
+                  <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="sr-only">End AM/PM</label>
+              <select
+                className="input"
+                value={endParts.pm ? 'PM' : 'AM'}
+                onChange={(e) => updateEnd('pm', e.target.value === 'PM')}
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="label">Slot length (min)</label>

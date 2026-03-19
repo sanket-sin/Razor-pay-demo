@@ -10,6 +10,8 @@ import * as productController from '../controllers/productController.js';
 import * as orderController from '../controllers/orderController.js';
 import * as paymentController from '../controllers/paymentController.js';
 import * as cancellationController from '../controllers/cancellationController.js';
+import * as bookingController from '../controllers/bookingController.js';
+import * as creatorController from '../controllers/creatorController.js';
 
 const router = Router();
 
@@ -71,6 +73,25 @@ router.post(
   requireRole('buyer'),
   validateBody(bookSlotSchema),
   sessionController.bookSlot
+);
+
+router.get('/bookings/me', authenticate, bookingController.listMyBookings);
+router.get('/group-bookings/me', authenticate, bookingController.listMyGroupBookings);
+
+router.get('/creators/me', authenticate, requireRole('creator'), creatorController.getMe);
+router.patch(
+  '/creators/me',
+  authenticate,
+  requireRole('creator'),
+  validateBody(
+    z.object({
+      razorpayLinkedAccountId: z.string().max(255).optional(),
+      stripeConnectAccountId: z.string().max(255).optional(),
+      displayName: z.string().min(1).max(255).optional(),
+      bio: z.string().max(5000).optional(),
+    })
+  ),
+  creatorController.updateMe
 );
 
 const groupCreateSchema = z.object({
@@ -166,6 +187,7 @@ const paymentCreateSchema = z.object({
   productId: z.string().uuid().optional(),
   quantity: z.number().int().min(1).optional(),
   shippingAddress: z.record(z.unknown()).optional(),
+  captureLater: z.boolean().optional(),
 });
 
 router.post(
@@ -183,9 +205,19 @@ router.post(
     z.object({
       paymentId: z.string().uuid(),
       paymentIntentId: z.string().optional(),
+      razorpayOrderId: z.string().optional(),
+      razorpayPaymentId: z.string().optional(),
+      razorpaySignature: z.string().optional(),
     })
   ),
   paymentController.verify
+);
+
+router.post(
+  '/payments/capture',
+  authenticate,
+  validateBody(z.object({ paymentId: z.string().uuid() })),
+  paymentController.capture
 );
 
 router.post(

@@ -15,6 +15,8 @@ import CreatorDashboard from './pages/CreatorDashboard.jsx';
 import CreateSession from './pages/CreateSession.jsx';
 import CreateGroupSession from './pages/CreateGroupSession.jsx';
 import CreateProduct from './pages/CreateProduct.jsx';
+import PaymentTest from './pages/PaymentTest.jsx';
+import MyBookings from './pages/MyBookings.jsx';
 
 function HydrateAuth() {
   const hydrateToken = useAuthStore((s) => s.hydrateToken);
@@ -36,6 +38,22 @@ export default function App() {
           <Route path="book" element={<BookSessions />} />
           <Route path="groups" element={<GroupSessions />} />
           <Route path="products" element={<Products />} />
+          <Route
+            path="bookings"
+            element={
+              <ProtectedRoute>
+                <MyBookings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="payment-test"
+            element={
+              <ProtectedRoute>
+                <PaymentTest />
+              </ProtectedRoute>
+            }
+          />
           <Route path="checkout/:productId" element={<Checkout />} />
           <Route
             path="orders"

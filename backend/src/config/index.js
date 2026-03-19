@@ -20,6 +20,8 @@ export const config = {
   platformFeeBps: num(process.env.PLATFORM_FEE_BPS, 1000),
   creatorPayoutDelayHours: num(process.env.CREATOR_PAYOUT_DELAY_HOURS, 48),
   sessionFullRefundHours: num(process.env.SESSION_FULL_REFUND_HOURS, 24),
+  /** When creator cancels, fee (basis points of refund) deducted from creator's next payout. e.g. 1000 = 10% */
+  creatorCancellationFeeBps: num(process.env.CREATOR_CANCELLATION_FEE_BPS, 1000),
 
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
