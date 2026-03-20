@@ -13,6 +13,8 @@ All JSON responses: `{ success: boolean, data?: ..., error?: { message, code, de
 
 Returns `{ user, token }`. Use header: `Authorization: Bearer <token>`.
 
+If `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are set on the server, registration also creates a Razorpay Customer (server-side) and may include `user.razorpayCustomerId` for Checkout/subscriptions. No Razorpay browser SDK is required for this step.
+
 ## Sessions (individual)
 
 | Method | Path | Auth | Notes |

@@ -33,6 +33,10 @@ export const config = {
     keyId: process.env.RAZORPAY_KEY_ID || '',
     keySecret: process.env.RAZORPAY_KEY_SECRET || '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+    /** URL to open for creator to create/link Razorpay Route account (dashboard or docs). */
+    routeConnectUrl:
+      process.env.RAZORPAY_ROUTE_CONNECT_URL ||
+      'https://dashboard.razorpay.com/app/route',
   },
 
   defaultPaymentProvider: (process.env.DEFAULT_PAYMENT_PROVIDER || 'stripe').toLowerCase(),

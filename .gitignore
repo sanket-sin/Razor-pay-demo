@@ -1,0 +1,14 @@
+# Secrets & local config
+backend/.env
+frontend/.env
+frontend/.env.local
+*.pem
+
+# Dependencies & build
+node_modules/
+dist/
+build/
+.cache/
+
+# OS / editor
+.DS_Store

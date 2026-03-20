@@ -79,6 +79,47 @@ router.get('/bookings/me', authenticate, bookingController.listMyBookings);
 router.get('/group-bookings/me', authenticate, bookingController.listMyGroupBookings);
 
 router.get('/creators/me', authenticate, requireRole('creator'), creatorController.getMe);
+router.get('/creators/me/razorpay-connect-url', authenticate, requireRole('creator'), creatorController.getRazorpayConnectUrl);
+
+const razorpayLinkedAccountCreateSchema = z.object({
+  phone: z.string().min(8).max(24),
+  legalBusinessName: z.string().min(4).max(200),
+  businessType: z.enum([
+    'individual',
+    'partnership',
+    'proprietary',
+    'private_limited',
+    'public_limited',
+    'llp',
+    'trust',
+    'society',
+    'section_8_company',
+    'other',
+  ]),
+  contactName: z.string().min(4).max(255),
+  customerFacingBusinessName: z.string().min(1).max(255).optional(),
+  category: z.string().min(1).max(100).default('education'),
+  subcategory: z.string().min(1).max(100).default('e_learning'),
+  businessModel: z.string().max(2000).optional(),
+  registeredStreet1: z.string().min(1).max(255),
+  registeredStreet2: z.string().max(255).optional(),
+  city: z.string().min(1).max(100),
+  state: z.string().min(2).max(100),
+  postalCode: z.string().min(3).max(12),
+  country: z.string().length(2).optional().default('IN'),
+  pan: z.string().length(10).regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i, 'Invalid PAN (e.g. ABCDE1234F)'),
+  gst: z.string().max(20).optional(),
+  referenceId: z.string().min(3).max(512).optional(),
+});
+
+router.post(
+  '/creators/me/razorpay-linked-account',
+  authenticate,
+  requireRole('creator'),
+  validateBody(razorpayLinkedAccountCreateSchema),
+  creatorController.createRazorpayLinkedAccount
+);
+
 router.patch(
   '/creators/me',
   authenticate,

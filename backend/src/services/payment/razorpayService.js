@@ -32,6 +32,35 @@ export class RazorpayService extends PaymentProvider {
     return this._instance;
   }
 
+  /** Create customer — POST /v1/customers (server-side only; never expose key_secret to the browser) */
+  async createCustomer(ctx) {
+    const { name, email, notes } = ctx;
+    const client = this._client();
+    log('POST /v1/customers');
+    const payload = {
+      name: String(name).trim().slice(0, 255),
+      email: String(email).trim().toLowerCase(),
+    };
+    if (notes && typeof notes === 'object' && Object.keys(notes).length > 0) {
+      payload.notes = Object.fromEntries(
+        Object.entries(notes).map(([k, v]) => [String(k).slice(0, 255), String(v).slice(0, 256)])
+      );
+    }
+    try {
+      const customer = await client.customers.create(payload);
+      return { customerId: customer.id, raw: customer };
+    } catch (e) {
+      const err = e?.error;
+      const desc =
+        (typeof err === 'object' && err?.description) ||
+        (typeof err === 'string' ? err : null) ||
+        e?.message ||
+        'Razorpay customer creation failed';
+      console.error('[RAZORPAY] createCustomer failed', e);
+      throw AppError.badRequest(String(desc), { razorpay: err });
+    }
+  }
+
   /** Create order — Razorpay Orders API (equivalent to Stripe PaymentIntent) */
   async createOrder(ctx) {
     const { amountMinor, currency, paymentId, description, metadata, captureLater } = ctx;
@@ -139,5 +168,95 @@ export class RazorpayService extends PaymentProvider {
     log('POST /v1/transfers', '(Route — split to creator)');
     const transfer = await client.transfers.create(payload);
     return { transferId: transfer.id, raw: transfer };
+  }
+
+  /**
+   * Create Razorpay Route linked account (connector) — POST /v2/accounts
+   * @see https://razorpay.com/docs/api/payments/route/create-linked-account/
+   * After creation, creators may still need stakeholder + product config + bank in Razorpay Dashboard.
+   */
+  async createRouteLinkedAccount(ctx) {
+    const {
+      email,
+      phone,
+      legalBusinessName,
+      businessType,
+      contactName,
+      customerFacingBusinessName,
+      category,
+      subcategory,
+      businessModel,
+      registeredStreet1,
+      registeredStreet2,
+      city,
+      state,
+      postalCode,
+      country,
+      pan,
+      gst,
+      referenceId,
+    } = ctx;
+
+    const client = this._client();
+    const digits = String(phone).replace(/\D/g, '');
+    if (digits.length < 8 || digits.length > 15) {
+      throw AppError.badRequest('Phone must have 8–15 digits');
+    }
+
+    const profile = {
+      category,
+      subcategory,
+      addresses: {
+        registered: {
+          street1: registeredStreet1.trim().slice(0, 255),
+          street2: (registeredStreet2 && registeredStreet2.trim()) || '—',
+          city: city.trim(),
+          state: state.trim().toUpperCase(),
+          postal_code: String(postalCode).trim(),
+          country: (country || 'IN').toUpperCase(),
+        },
+      },
+    };
+    if (businessModel && String(businessModel).trim()) {
+      profile.business_model = String(businessModel).trim().slice(0, 2000);
+    }
+
+    const legal_info = { pan: String(pan).trim().toUpperCase() };
+    if (gst && String(gst).trim()) {
+      legal_info.gst = String(gst).trim();
+    }
+
+    const ref = String(referenceId || '').slice(0, 512);
+    if (ref.length < 3) {
+      throw AppError.badRequest('reference_id must be at least 3 characters');
+    }
+
+    const payload = {
+      email: email.trim().toLowerCase(),
+      phone: digits,
+      type: 'route',
+      reference_id: ref,
+      legal_business_name: legalBusinessName.trim(),
+      business_type: businessType,
+      contact_name: contactName.trim(),
+      customer_facing_business_name: (customerFacingBusinessName || legalBusinessName).trim().slice(0, 255),
+      profile,
+      legal_info,
+    };
+
+    log('POST /v2/accounts', '(Route — create linked account)');
+    try {
+      const account = await client.accounts.create(payload);
+      return { accountId: account.id, status: account.status, raw: account };
+    } catch (e) {
+      const err = e?.error;
+      const desc =
+        (typeof err === 'object' && err?.description) ||
+        (typeof err === 'string' ? err : null) ||
+        e?.message ||
+        'Razorpay linked account creation failed';
+      console.error('[RAZORPAY] createRouteLinkedAccount failed', e);
+      throw AppError.badRequest(String(desc), { razorpay: err });
+    }
   }
 }

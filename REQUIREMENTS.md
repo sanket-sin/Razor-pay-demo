@@ -4,7 +4,7 @@
 
 - Creator **creates / links a connector account** (Razorpay Route linked account) so they can receive payouts.
 - Payments from users go to platform; after capture and optional hold period, **creator’s share is transferred to this linked account**.
-- Implementation: Creator has `razorpayLinkedAccountId` (and Stripe Connect ID). Creator can set/link this from Dashboard. Payout job uses `transferToCreator` (Razorpay POST /v1/transfers) to send `creatorAmount` to this account.
+- Implementation: Creator has `razorpayLinkedAccountId` (and Stripe Connect ID). **Create connector:** Creator Dashboard form → `POST /creators/me/razorpay-linked-account` → Razorpay `POST /v2/accounts` (Route); `acc_…` is saved automatically. **Or** paste ID manually / **Open Razorpay Route** for dashboard KYC (stakeholder, product config, bank). Route must be enabled on the merchant account. Payout job uses `transferToCreator` (Razorpay POST /v1/transfers) to send `creatorAmount` to this account.
 
 ---
 

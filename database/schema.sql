@@ -24,6 +24,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('creator', 'buyer') NOT NULL DEFAULT 'buyer',
   name VARCHAR(255) NOT NULL,
+  razorpay_customer_id VARCHAR(255) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_users_email (email),

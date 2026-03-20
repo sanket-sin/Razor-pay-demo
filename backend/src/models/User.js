@@ -13,6 +13,11 @@ export default function defineUser(sequelize) {
       passwordHash: { type: DataTypes.STRING(255), allowNull: false, field: 'password_hash' },
       role: { type: DataTypes.ENUM('creator', 'buyer'), allowNull: false, defaultValue: 'buyer' },
       name: { type: DataTypes.STRING(255), allowNull: false },
+      razorpayCustomerId: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'razorpay_customer_id',
+      },
     },
     { tableName: 'users' }
   );
