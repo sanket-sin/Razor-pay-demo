@@ -38,6 +38,7 @@ CREATE TABLE creators (
   bio TEXT,
   stripe_connect_account_id VARCHAR(255) NULL,
   razorpay_linked_account_id VARCHAR(255) NULL,
+  default_catalog_seeded TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_creators_user (user_id),

@@ -347,9 +347,9 @@ export default function CreatorDashboard() {
           <h2 className="font-display font-semibold text-white">New product</h2>
           <p className="mt-2 text-sm text-slate-400">Price, stock, delivery regions.</p>
         </Link>
-        <Link to="/book" className="card border-ink-600 hover:border-accent/40 transition">
-          <h2 className="font-display font-semibold text-white">Public booking page</h2>
-          <p className="mt-2 text-sm text-slate-400">Preview how buyers see sessions.</p>
+        <Link to="/browse" className="card border-ink-600 hover:border-accent/40 transition">
+          <h2 className="font-display font-semibold text-white">Sessions & shop (public)</h2>
+          <p className="mt-2 text-sm text-slate-400">Preview how buyers see your listings and pay.</p>
         </Link>
       </div>
     </div>

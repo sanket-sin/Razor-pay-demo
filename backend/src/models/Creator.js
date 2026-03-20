@@ -14,6 +14,12 @@ export default function defineCreator(sequelize) {
       bio: { type: DataTypes.TEXT },
       stripeConnectAccountId: { type: DataTypes.STRING(255), field: 'stripe_connect_account_id' },
       razorpayLinkedAccountId: { type: DataTypes.STRING(255), field: 'razorpay_linked_account_id' },
+      defaultCatalogSeeded: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: 'default_catalog_seeded',
+      },
     },
     { tableName: 'creators' }
   );

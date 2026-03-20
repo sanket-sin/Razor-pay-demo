@@ -5,13 +5,13 @@ import * as ordersApi from '../services/orders.js';
 import { getErrorMessage } from '../services/api.js';
 import { useAuthStore } from '../store/authStore.js';
 import { formatMoney } from '../utils/money.js';
+import { clientPaymentProvider } from '../config/payment.js';
 import Spinner from '../components/Spinner.jsx';
 import Alert from '../components/Alert.jsx';
 import StripeCheckout from '../components/StripeCheckout.jsx';
 import RazorpayCheckout from '../components/RazorpayCheckout.jsx';
-import { clientPaymentProvider } from '../config/payment.js';
 
-export default function Checkout() {
+export default function ProductDetail() {
   const { productId } = useParams();
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
@@ -38,7 +38,7 @@ export default function Checkout() {
     })();
   }, [productId]);
 
-  const checkout = async () => {
+  const payNow = async () => {
     if (!token || user?.role !== 'buyer') {
       setErr('Log in as a buyer to purchase.');
       return;
@@ -93,13 +93,27 @@ export default function Checkout() {
     );
   }
 
+  const payLabel = clientPaymentProvider() === 'razorpay' ? 'Pay with Razorpay' : 'Pay with card';
+
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="font-display text-2xl font-bold text-white">Checkout</h1>
+      <Link to="/browse#products" className="text-sm text-slate-400 hover:text-accent">
+        ← Sessions & shop
+      </Link>
+      <h1 className="font-display mt-4 text-2xl font-bold text-white">{product.name}</h1>
+      {product.imageUrl && (
+        <img
+          src={product.imageUrl}
+          alt=""
+          className="mt-4 h-56 w-full rounded-xl object-cover bg-ink-800"
+        />
+      )}
+      <p className="mt-4 text-slate-300">{product.description}</p>
+      <p className="mt-2 text-lg text-accent">{formatMoney(product.priceAmount * qty, product.currency)}</p>
+      <p className="text-xs text-slate-500">Stock: {product.stock}</p>
+
       <div className="card mt-6 border-ink-600">
-        <h2 className="font-semibold text-white">{product.name}</h2>
-        <p className="text-accent mt-2">{formatMoney(product.priceAmount * qty, product.currency)}</p>
-        <div className="mt-4">
+        <div className="mt-2">
           <label className="label">Quantity</label>
           <input
             type="number"
@@ -112,7 +126,12 @@ export default function Checkout() {
         </div>
         <div className="mt-4 space-y-2">
           <label className="label">Shipping</label>
-          <input className="input" placeholder="Address line" value={addr.line1} onChange={(e) => setAddr({ ...addr, line1: e.target.value })} />
+          <input
+            className="input"
+            placeholder="Address line"
+            value={addr.line1}
+            onChange={(e) => setAddr({ ...addr, line1: e.target.value })}
+          />
           <div className="grid grid-cols-2 gap-2">
             <input className="input" placeholder="City" value={addr.city} onChange={(e) => setAddr({ ...addr, city: e.target.value })} />
             <input className="input" placeholder="Region" value={addr.region} onChange={(e) => setAddr({ ...addr, region: e.target.value })} />
@@ -125,8 +144,8 @@ export default function Checkout() {
           </div>
         )}
         {token && user?.role === 'buyer' ? (
-          <button type="button" className="btn-primary mt-6 w-full" onClick={checkout}>
-            {clientPaymentProvider() === 'razorpay' ? 'Pay with Razorpay' : 'Pay with card'}
+          <button type="button" className="btn-primary mt-6 w-full" onClick={payNow}>
+            {payLabel}
           </button>
         ) : (
           <Link to="/login" className="btn-primary mt-6 block w-full text-center">
@@ -134,6 +153,7 @@ export default function Checkout() {
           </Link>
         )}
       </div>
+
       {pay?.kind === 'stripe' && (
         <StripeCheckout
           clientSecret={pay.clientSecret}

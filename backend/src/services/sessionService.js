@@ -11,7 +11,8 @@ import { AppError } from '../utils/AppError.js';
 import { generateSlotIntervals, utcDayBoundsForSlot } from '../utils/dateSlots.js';
 import { releaseExpiredSlotLocks, lockExpiryDate } from './slotLockService.js';
 
-export async function createSession(creatorId, payload) {
+export async function createSession(creatorId, payload, options = {}) {
+  const { transaction: outerTransaction } = options;
   const {
     title,
     sessionDate,
@@ -41,7 +42,7 @@ export async function createSession(creatorId, payload) {
     throw AppError.badRequest('No slots generated for the given window');
   }
 
-  return sequelize.transaction(async (t) => {
+  const run = async (t) => {
     const session = await Session.create(
       {
         creatorId,
@@ -66,7 +67,10 @@ export async function createSession(creatorId, payload) {
       { transaction: t }
     );
     return session;
-  });
+  };
+
+  if (outerTransaction) return run(outerTransaction);
+  return sequelize.transaction(run);
 }
 
 export async function listSessions({ creatorId, fromDate, toDate }) {

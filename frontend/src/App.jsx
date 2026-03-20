@@ -6,9 +6,11 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import Browse from './pages/Browse.jsx';
 import BookSessions from './pages/BookSessions.jsx';
 import GroupSessions from './pages/GroupSessions.jsx';
 import Products from './pages/Products.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
 import Checkout from './pages/Checkout.jsx';
 import Orders from './pages/Orders.jsx';
 import CreatorDashboard from './pages/CreatorDashboard.jsx';
@@ -35,9 +37,11 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="browse" element={<Browse />} />
           <Route path="book" element={<BookSessions />} />
           <Route path="groups" element={<GroupSessions />} />
           <Route path="products" element={<Products />} />
+          <Route path="products/:productId" element={<ProductDetail />} />
           <Route
             path="bookings"
             element={

@@ -35,7 +35,7 @@ export default function CreateProduct() {
         deliveryRegions,
         imageUrl: imageUrl || undefined,
       });
-      navigate('/products');
+      navigate('/browse#products');
     } catch (er) {
       setErr(getErrorMessage(er));
     } finally {

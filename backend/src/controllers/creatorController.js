@@ -3,12 +3,19 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { AppError } from '../utils/AppError.js';
 import { config } from '../config/index.js';
 import { RazorpayService } from '../services/payment/razorpayService.js';
+import { syncDefaultCreatorCatalogIfNeeded } from '../services/creatorCatalogService.js';
 
 const razorpayService = new RazorpayService();
 
 export const getMe = asyncHandler(async (req, res) => {
-  const creator = await Creator.findOne({ where: { userId: req.user.id } });
+  let creator = await Creator.findOne({ where: { userId: req.user.id } });
   if (!creator) throw AppError.notFound('Creator profile not found');
+
+  if (!creator.defaultCatalogSeeded) {
+    await syncDefaultCreatorCatalogIfNeeded(creator.id);
+    creator = await Creator.findOne({ where: { userId: req.user.id } });
+  }
+
   res.json({
     success: true,
     data: {

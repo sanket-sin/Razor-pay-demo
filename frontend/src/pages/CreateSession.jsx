@@ -54,7 +54,7 @@ export default function CreateSession() {
         currency,
       });
       if (session?.creatorId) setCreatorId(session.creatorId);
-      navigate('/book');
+      navigate('/browse#sessions');
     } catch (er) {
       setErr(getErrorMessage(er));
     } finally {

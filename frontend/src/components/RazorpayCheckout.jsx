@@ -9,6 +9,8 @@ export default function RazorpayCheckout({
   amount,
   currency,
   paymentId,
+  prefillEmail,
+  customerId,
   onSuccess,
   onClose,
   onError,
@@ -34,6 +36,8 @@ export default function RazorpayCheckout({
         currency: (currency || 'INR').toUpperCase(),
         order_id: orderId,
         name: 'Creator Platform',
+        ...(prefillEmail ? { prefill: { email: prefillEmail } } : {}),
+        ...(customerId ? { customer_id: customerId } : {}),
         handler: async (res) => {
           try {
             await verifyPayment(paymentId, {
@@ -65,7 +69,7 @@ export default function RazorpayCheckout({
     };
     document.body.appendChild(script);
     return () => {};
-  }, [orderId, keyId, amount, currency, paymentId, onSuccess, onClose, onError]);
+  }, [orderId, keyId, amount, currency, paymentId, prefillEmail, customerId, onSuccess, onClose, onError]);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">

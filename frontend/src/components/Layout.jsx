@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore.js';
 
 export default function Layout() {
@@ -12,21 +12,20 @@ export default function Layout() {
           <Link to="/" className="font-display text-lg font-semibold tracking-tight text-white">
             Creator<span className="text-accent">Platform</span>
           </Link>
-          <nav className="flex items-center gap-1 sm:gap-3">
-            <Link to="/book" className="btn-ghost text-sm hidden sm:inline-flex">
-              Book session
-            </Link>
+          <nav className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+            <NavLink
+              to="/browse"
+              className={({ isActive }) =>
+                `btn-ghost text-sm ${isActive ? 'bg-ink-800 text-white ring-1 ring-ink-600' : ''}`
+              }
+            >
+              Sessions & shop
+            </NavLink>
             {user && (
               <Link to="/bookings" className="btn-ghost text-sm hidden sm:inline-flex">
                 My bookings
               </Link>
             )}
-            <Link to="/groups" className="btn-ghost text-sm hidden sm:inline-flex">
-              Groups
-            </Link>
-            <Link to="/products" className="btn-ghost text-sm">
-              Shop
-            </Link>
             {user?.role === 'creator' && (
               <Link to="/creator" className="btn-ghost text-sm">
                 Dashboard
@@ -35,11 +34,6 @@ export default function Layout() {
             {user && (
               <Link to="/orders" className="btn-ghost text-sm">
                 Orders
-              </Link>
-            )}
-            {user && (
-              <Link to="/payment-test" className="btn-ghost text-sm text-amber-400/90">
-                Payment test
               </Link>
             )}
             {user ? (
